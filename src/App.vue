@@ -113,8 +113,9 @@ export default {
   methods:{
     getChartData(Name){
       this.selectName = Name;
-      this.$http.get(`${process.env.VUE_APP_API}dataStation?station=${Name}`).then((response)=>{
+      this.$http.post(`${process.env.VUE_APP_API}dataStation`,{station:this.selectName}).then((response)=>{
         let temp = response.data;
+        console.log(temp)
         let data ={}
         for(let key in temp){
           if(new Date(key)>=new Date(this.FromTime) && new Date(key)<=new Date(this.ToTime)){
