@@ -1,28 +1,196 @@
 <template>
-  <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
-  </div>
+  <v-app style="background:#FFF">
+    <v-container fluid>
+      <v-layout style="height:5%">
+        <v-flex xs3>
+          <v-select
+            :items="countySet"
+            v-model="county"
+            @change="resumeStation()"
+            menu-props="auto"
+            label="Select"
+            hide-details
+            prepend-icon="map"
+            single-line
+          ></v-select>
+        </v-flex>
+        <v-flex xs3>
+          <v-menu
+            :close-on-content-click="false"
+            v-model="modal1"
+            :nudge-right="40"
+            lazy
+            transition="scale-transition"
+            offset-y
+            full-width
+            min-width="290px"
+          >
+            <v-text-field
+              slot="activator"
+              v-model="FromTime"
+              label="從時間點 : "
+              prepend-icon="event"
+              readonly
+            ></v-text-field>
+            <v-date-picker v-model="FromTime" @change="changeTime()" type="month" @input="modal1 = false"></v-date-picker>
+          </v-menu>
+        </v-flex>
+        <v-flex xs3 >
+          <v-menu
+            :close-on-content-click="false"
+            v-model="modal2"
+            :nudge-right="40"
+            lazy
+            transition="scale-transition"
+            offset-y
+            full-width
+            min-width="290px"
+          >
+            <v-text-field
+              slot="activator"
+              v-model="ToTime"
+              label="到時間點"
+              prepend-icon="event"
+              readonly
+            ></v-text-field>
+            <v-date-picker v-model="ToTime" type="month" @input="modal2 = false"></v-date-picker>
+          </v-menu>
+        </v-flex>
+        <v-flex v-if="selectName!=''" xs3>
+          <h1>目前選擇的點 : {{selectName}}</h1>
+        </v-flex>
+      </v-layout>
+      <v-layout style="height:600px">
+        <GmapMap
+          :center="center"
+          :zoom="12"
+          :options="options"
+          style="height:100%;width:100%"
+          @rightclick="getThreeLocate($event)"
+          @dblclick="resumeStation()"
+        >
+        <GmapMarker
+          :key="index"
+          v-for="(m, index) in filterCounty"
+          :position="m.position"
+          :clickable="true"
+          @click="getChartData(m.Name)"
+        />
+        </GmapMap>
+      </v-layout>
+      <v-layout>
+        <canvas  style="height:100px" id="planet-chart"></canvas>
+      </v-layout>
+    </v-container>
+  </v-app>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import planetChartData from './chart-data.js';
+import Chart from 'chart.js';
 
 export default {
-  name: 'app',
-  components: {
-    HelloWorld
+  name: 'App',
+  data () {
+    return {
+      options:{"mapTypeControl":false,"streetViewControl":false,zoomControl:false},
+      center:{lat:25,lng:121.5},
+      AllStations:[],
+      stations:[],
+      countySet:[],
+      county:"全部",
+      FromTime:"2010-01",
+      ToTime:"2018-09",
+      modal1: false,
+      modal2: false,
+      chartData:[],
+      planetChartData: planetChartData,
+      setThree:false,
+      chart : null,
+      selectName:""
+    }
+  },
+  methods:{
+    getChartData(Name){
+      this.selectName = Name;
+      this.$http.get(`${process.env.VUE_APP_API}dataStation?station=${Name}`).then((response)=>{
+        let temp = response.data;
+        let data ={}
+        for(let key in temp){
+          if(new Date(key)>=new Date(this.FromTime) && new Date(key)<=new Date(this.ToTime)){
+            data[key] = temp[key];
+          }
+        }
+
+        let chart = this.planetChartData.data;
+        console.log(chart);
+        chart.datasets[0].label = Name+"月雨量";
+        chart.datasets[0].data = [];
+        chart.datasets[0].backgroundColor = [];
+        chart.labels = [];
+        for(let key in data){
+          chart.datasets[0].data.push(data[key]);
+          chart.labels.push(key);
+          chart.datasets[0].backgroundColor.push("rgba(255,216,0,0.5)");
+        }
+        this.chart.update();
+      })
+    },
+    createChart(chartData) {
+      const ctx = document.getElementById("planet-chart");
+      const myChart = new Chart(ctx, {
+        type: chartData.type,
+        data: chartData.data,
+        options: chartData.options,
+      });
+      this.chart = myChart;
+    },
+    getThreeLocate(event){
+      let position = {latitude:event.latLng.lat(),longitude:event.latLng.lng()};
+      this.$http.post(`${process.env.VUE_APP_API}findThreeStation`,{data:position}).then((response)=>{
+        this.county = "全部";
+        this.stations = response.data;
+      })
+    },
+    resumeStation(){
+      this.stations = this.AllStations;
+    },
+    changeTime(){
+      if(this.selectName!=''){
+        this.getChartData(this.selectName);
+      }
+    }
+  },
+  computed:{
+    filterCounty : function(){
+      if(this.county == "全部"){
+        return this.stations;
+      }else{
+        let result = [];
+        this.stations.forEach(item=>{
+          if(item.county == this.county){
+            result.push(item);
+          }
+        })
+        return result;
+      }
+    }
+  },
+  created(){
+    const vm =this;
+    this.$http.get(`${process.env.VUE_APP_API}stationsLocate`).then((response)=>{
+      let s = new Set();
+      vm.stations = response.data;
+      vm.AllStations = response.data;
+      vm.stations.forEach((item)=>{
+        s.add(item.county);
+      })
+      vm.countySet.push("全部");
+      vm.countySet = vm.countySet.concat(Array.from(s));
+    })
+  },
+  mounted(){
+    this.createChart(this.planetChartData);
   }
 }
 </script>
-
-<style lang="scss">
-#app {
-  font-family: 'Avenir', Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
-}
-</style>
