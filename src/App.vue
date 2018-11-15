@@ -55,7 +55,7 @@
               prepend-icon="event"
               readonly
             ></v-text-field>
-            <v-date-picker v-model="ToTime" type="month" @input="modal2 = false"></v-date-picker>
+            <v-date-picker v-model="ToTime" @change="changeTime()" type="month" @input="modal2 = false"></v-date-picker>
           </v-menu>
         </v-flex>
         <v-flex v-if="selectName!=''" xs3>
