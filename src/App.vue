@@ -1,5 +1,7 @@
 <template>
   <v-app style="background:#FFF">
+    <loading :active.sync="isLoading" 
+    ></loading>
     <v-container fluid>
       <v-layout style="height:5%">
         <v-flex xs3>
@@ -88,9 +90,14 @@
 <script>
 import planetChartData from './chart-data.js';
 import Chart from 'chart.js';
+import Loading from 'vue-loading-overlay';
+import 'vue-loading-overlay/dist/vue-loading.css';
 
 export default {
   name: 'App',
+  components:{
+    Loading
+  },
   data () {
     return {
       options:{"mapTypeControl":false,"streetViewControl":false,zoomControl:false},
@@ -107,7 +114,8 @@ export default {
       planetChartData: planetChartData,
       setThree:false,
       chart : null,
-      selectName:""
+      selectName:"",
+      isLoading: false
     }
   },
   methods:{
@@ -179,6 +187,7 @@ export default {
   },
   created(){
     const vm =this;
+    this.isLoading = true;
     this.$http.get(`${process.env.VUE_APP_API}stationsLocate`).then((response)=>{
       let s = new Set();
       vm.stations = response.data;
@@ -188,6 +197,7 @@ export default {
       })
       vm.countySet.push("全部");
       vm.countySet = vm.countySet.concat(Array.from(s));
+      this.isLoading = false;
     })
   },
   mounted(){
